@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>OpenRouter AI - 5 Free Models</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
@@ -12,6 +12,7 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
@@ -34,6 +35,7 @@
                 </div>
             </div>
 
+            <!-- Model List Container -->
             <div class="model-list-container" id="modelListContainer" style="display: none;">
                 <div class="model-list-header">
                     <span><i class="fas fa-microchip"></i> Pilih Model AI</span>
@@ -118,6 +120,7 @@
             </div>
         </aside>
 
+        <!-- Main Chat Area -->
         <main class="chat-area">
             <div class="chat-header">
                 <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
@@ -162,6 +165,19 @@
         </main>
     </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="/static/script.js"></script>
+    <script>
+        // Fallback: pastikan semua event listener terpasang setelah DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded and parsed');
+            
+            // Cek apakah fungsi global sudah ada
+            if (typeof window.initApp === 'function') {
+                window.initApp();
+            } else {
+                console.log('Waiting for script.js to load...');
+            }
+        });
+    </script>
 </body>
-                              </html>
+    </html>
