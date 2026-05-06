@@ -1,45 +1,457 @@
-let currentModel='gpt-oss',conversationHistory=[],isWaitingResponse=!1;
-const messagesContainer=document.getElementById('messagesContainer'),messageInput=document.getElementById('messageInput'),sendBtn=document.getElementById('sendBtn'),testModelBtn=document.getElementById('testModelBtn'),temperatureSlider=document.getElementById('temperature'),tempValue=document.getElementById('tempValue'),maxTokensSlider=document.getElementById('maxTokens'),tokensValue=document.getElementById('tokensValue'),typingIndicator=document.getElementById('typingIndicator'),charCount=document.getElementById('charCount'),currentModelName=document.getElementById('currentModelName'),activeModelNameSpan=document.getElementById('activeModelName'),apiStatus=document.getElementById('apiStatus'),systemPromptDisplay=document.getElementById('systemPromptDisplay'),showModelsBtn=document.getElementById('showModelsBtn'),clearChatMenuBtn=document.getElementById('clearChatMenuBtn'),newChatMenuBtn=document.getElementById('newChatMenuBtn'),modelListContainer=document.getElementById('modelListContainer'),closeModelsBtn=document.getElementById('closeModelsBtn'),sidebarToggle=document.getElementById('sidebarToggle'),sidebar=document.getElementById('sidebar'),welcomeMessage=document.getElementById('welcomeMessage'),closeWelcomeBtn=document.getElementById('closeWelcomeBtn');
-const modelNames={gpt-oss:{name:'GPT-OSS 120B',icon:'🤖'},'gemma-31b':{name:'Gemma 4 31B',icon:'🌟'},'gemma-26b':{name:'Gemma 4 26B',icon:'⚡'},'owl-alpha':{name:'Owl Alpha',icon:'🦉'},nemotron:{name:'Nemotron Super',icon:'🎯'}};
+// ============================================
+// OPENROUTER AI WEBUI SCRIPT - FIXED VERSION
+// ============================================
 
-async function loadSystemPrompt(){try{const e=await fetch('/api/system_prompt'),t=await e.json();systemPromptDisplay&&(systemPromptDisplay.textContent=t.system_prompt||'No system prompt set')}catch(e){console.error('Failed to load system prompt:',e),systemPromptDisplay&&(systemPromptDisplay.textContent='Failed to load system prompt')}}
+// Global variables
+let currentModel = 'gpt-oss';
+let conversationHistory = [];
+let isWaitingResponse = false;
 
-function closeModelList(){modelListContainer.style.display='none'}
-function toggleModelList(){modelListContainer.style.display==='none'||modelListContainer.style.display===''?modelListContainer.style.display='block':modelListContainer.style.display='none'}
-showModelsBtn&&showModelsBtn.addEventListener('click',e=>{e.stopPropagation(),toggleModelList()});
-closeModelsBtn&&closeModelsBtn.addEventListener('click',e=>{e.stopPropagation(),closeModelList()});
-document.addEventListener('click',e=>{modelListContainer&&modelListContainer.style.display==='block'&&!modelListContainer.contains(e.target)&&!showModelsBtn.contains(e.target)&&closeModelList()});
-modelListContainer&&modelListContainer.addEventListener('click',e=>e.stopPropagation());
+// Model mapping
+const modelNames = {
+    'gpt-oss': { name: 'GPT-OSS 120B', icon: '🤖' },
+    'gemma-31b': { name: 'Gemma 4 31B', icon: '🌟' },
+    'gemma-26b': { name: 'Gemma 4 26B', icon: '⚡' },
+    'owl-alpha': { name: 'Owl Alpha', icon: '🦉' },
+    'nemotron': { name: 'Nemotron Super', icon: '🎯' }
+};
 
-closeWelcomeBtn&&closeWelcomeBtn.addEventListener('click',e=>{e.stopPropagation(),welcomeMessage&&(welcomeMessage.classList.add('hidden'),localStorage.setItem('welcome_closed','true'),showToast('Petunjuk ditutup'))});
-localStorage.getItem('welcome_closed')==='true'&&welcomeMessage&&welcomeMessage.classList.add('hidden');
+// DOM Elements (akan diisi setelah DOM ready)
+let messagesContainer, messageInput, sendBtn, testModelBtn, temperatureSlider, tempValue;
+let maxTokensSlider, tokensValue, typingIndicator, charCount, currentModelName;
+let activeModelNameSpan, apiStatus, systemPromptDisplay, showModelsBtn, clearChatMenuBtn;
+let newChatMenuBtn, modelListContainer, closeModelsBtn, sidebarToggle, sidebar;
+let welcomeMessage, closeWelcomeBtn;
 
-function saveConversation(){localStorage.setItem('chat_history',JSON.stringify(conversationHistory)),localStorage.setItem('current_model',currentModel)}
-function loadConversation(){const e=localStorage.getItem('chat_history');e&&(conversationHistory=JSON.parse(e),renderMessages());const t=localStorage.getItem('current_model');t&&modelNames[t]&&(currentModel=t,updateModelUI())}
-function updateModelUI(){currentModelName.textContent=`${modelNames[currentModel].icon} ${modelNames[currentModel].name}`,activeModelNameSpan.textContent=modelNames[currentModel].name;const e=document.querySelector('.model-icon-display');e&&(e.textContent=modelNames[currentModel].icon),document.querySelectorAll('.model-card').forEach(e=>{e.dataset.model===currentModel?e.classList.add('active'):e.classList.remove('active')})}
-function escapeHtml(e){const t=document.createElement('div');return t.textContent=e,t.innerHTML}
-function formatCodeBlocks(e){const t=/```(\w*)\n([\s\S]*?)```/g;let n=e;const o=[];let r;for(;null!==(r=t.exec(e));)o.push({language:r[1]||'plaintext',code:r[2],original:r[0]});for(const e of o){const t=escapeHtml(e.code);n=n.replace(e.original,`<pre><code class="language-${e.language}">${t}</code></pre>`)}return n=n.replace(/`([^`]+)`/g,'<code>$1</code>'),n=n.replace(/\n/g,'<br>')}
+// ========== FUNCTIONS ==========
 
-function renderMessages(){if(0===conversationHistory.length){if(messagesContainer.querySelector('.welcome-message'))return;messagesContainer.innerHTML=`<div class="welcome-message" id="welcomeMessage"><button class="close-welcome" id="closeWelcomeBtn" title="Tutup petunjuk">✕</button><i class="fas fa-robot"></i><h3>5 Model AI Gratis Siap Pakai!</h3><p>Klik <strong>Change Models</strong> di kiri atas untuk ganti model AI.</p><div class="features"><span><i class="fas fa-check-circle"></i> GPT-OSS 120B</span><span><i class="fas fa-check-circle"></i> Gemma 4 31B</span><span><i class="fas fa-check-circle"></i> Gemma 4 26B</span><span><i class="fas fa-check-circle"></i> Owl Alpha</span><span><i class="fas fa-check-circle"></i> Nemotron Super</span></div><div class="example-prompts"><p><strong>Contoh prompt:</strong></p><div class="example-buttons"><button class="example-btn" data-prompt="Buatkan kode Python untuk menghitung faktorial dengan penjelasan">🐍 Kode Python</button><button class="example-btn" data-prompt="Buatkan fungsi JavaScript untuk memfilter array objek">📜 JavaScript</button><button class="example-btn" data-prompt="Jelaskan konsep API dengan analogi sederhana">📖 Penjelasan</button></div></div></div>`;const e=document.getElementById('closeWelcomeBtn');e&&e.addEventListener('click',e=>{e.stopPropagation();const t=document.getElementById('welcomeMessage');t&&(t.classList.add('hidden'),localStorage.setItem('welcome_closed','true'),showToast('Petunjuk ditutup'))}),document.querySelectorAll('.example-btn').forEach(e=>{e.addEventListener('click',()=>{messageInput.value=e.dataset.prompt,updateCharCount(),messageInput.focus()})}),localStorage.getItem('welcome_closed')==='true'&&document.getElementById('welcomeMessage')?.classList.add('hidden');return}messagesContainer.innerHTML='',conversationHistory.forEach(e=>{const t=document.createElement('div');t.className=`message ${e.role}`;const n=new Date(e.timestamp).toLocaleTimeString();let o=e.content;o=e.role==='assistant'?formatCodeBlocks(e.content):escapeHtml(e.content).replace(/\n/g,'<br>'),t.innerHTML=`<div class="message-content">${o}<div class="message-time">${n}</div></div>`,messagesContainer.appendChild(t)}),document.querySelectorAll('pre code').forEach(e=>{hljs.highlightElement(e);const t=e.parentElement,n=document.createElement('div');n.className='code-block-wrapper',t.parentNode.insertBefore(n,t),n.appendChild(t);const o=document.createElement('button');o.className='copy-code-btn',o.innerHTML='<i class="fas fa-copy"></i> Copy',o.onclick=()=>{navigator.clipboard.writeText(e.textContent),o.innerHTML='<i class="fas fa-check"></i> Copied!',setTimeout(()=>{o.innerHTML='<i class="fas fa-copy"></i> Copy'},2e3)},n.appendChild(o)}),messagesContainer.scrollTop=messagesContainer.scrollHeight}
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
-async function sendMessage(){if(isWaitingResponse)return;const e=messageInput.value.trim();if(!e)return;const t={role:'user',content:e,timestamp:new Date().toISOString()};conversationHistory.push(t),renderMessages(),messageInput.value='',updateCharCount(),isWaitingResponse=!0,typingIndicator.style.display='flex',sendBtn.disabled=!0,apiStatus.innerHTML='<i class="fas fa-circle" style="color: #ffc107;"></i> Processing...';try{const n=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:e,model:currentModel,temperature:parseFloat(temperatureSlider.value),max_tokens:parseInt(maxTokensSlider.value),history:conversationHistory.slice(0,-1)})}),o=await n.json();if(o.success){const e={role:'assistant',content:o.message,timestamp:new Date().toISOString()};conversationHistory.push(e),renderMessages(),saveConversation(),apiStatus.innerHTML='<i class="fas fa-circle" style="color: #28a745;"></i> API Ready'}else showError(o.error||'Failed to get response')}catch(e){showError('Network error: '+e.message)}finally{isWaitingResponse=!1,typingIndicator.style.display='none',sendBtn.disabled=!1}}
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.innerHTML = `<i class="fas fa-check-circle" style="margin-right: 8px; color: #28a745;"></i> ${escapeHtml(message)}`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
 
-function showError(e){const t=document.createElement('div');t.className='message assistant',t.innerHTML=`<div class="message-content" style="background: rgba(220, 53, 69, 0.15); border-color: #dc3545;">❌ Error: ${escapeHtml(e)}<div class="message-time">${new Date().toLocaleTimeString()}</div></div>`,messagesContainer.appendChild(t),messagesContainer.scrollTop=messagesContainer.scrollHeight,apiStatus.innerHTML='<i class="fas fa-circle" style="color: #dc3545;"></i> Error',setTimeout(()=>{apiStatus.innerHTML='<i class="fas fa-circle" style="color: #28a745;"></i> API Ready'},3e3)}
-function showToast(e){const t=document.createElement('div');t.className='toast-notification',t.innerHTML=`<i class="fas fa-check-circle" style="margin-right: 8px; color: #28a745;"></i> ${escapeHtml(e)}`,document.body.appendChild(t),setTimeout(()=>t.remove(),2e3)}
-async function testModel(){testModelBtn.disabled=!0,testModelBtn.innerHTML='<i class="fas fa-spinner fa-pulse"></i> Testing...';try{const e=await fetch('/api/test_model',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:currentModel})}),t=await e.json();t.success?showError(`✅ ${modelNames[currentModel].name} is working!`):showError('❌ Test failed')}catch(e){showError('Test failed: '+e.message)}finally{testModelBtn.disabled=!1,testModelBtn.innerHTML='<i class="fas fa-vial"></i> Test Model'}}
-function clearHistory(){confirm('Hapus semua percakapan?')&&(conversationHistory=[],renderMessages(),saveConversation(),showToast('Chat history cleared'))}
-function newChat(){conversationHistory.length>0&&confirm('Mulai chat baru?')&&(conversationHistory=[],renderMessages(),saveConversation(),showToast('New chat started'))}
-function updateCharCount(){charCount.textContent=messageInput.value.length+' karakter'}
+function formatCodeBlocks(text) {
+    const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+    let formattedText = text;
+    const codeBlocks = [];
+    let match;
+    
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+        codeBlocks.push({ language: match[1] || 'plaintext', code: match[2], original: match[0] });
+    }
+    
+    for (const block of codeBlocks) {
+        const encodedCode = escapeHtml(block.code);
+        formattedText = formattedText.replace(block.original, `<pre><code class="language-${block.language}">${encodedCode}</code></pre>`);
+    }
+    
+    formattedText = formattedText.replace(/`([^`]+)`/g, '<code>$1</code>');
+    formattedText = formattedText.replace(/\n/g, '<br>');
+    return formattedText;
+}
 
-messageInput.addEventListener('keydown',e=>{e.key==='Enter'&&!e.shiftKey&&(e.preventDefault(),sendMessage())});
-temperatureSlider.addEventListener('input',()=>tempValue.textContent=temperatureSlider.value);
-maxTokensSlider.addEventListener('input',()=>tokensValue.textContent=maxTokensSlider.value);
-clearChatMenuBtn?.addEventListener('click',clearHistory);
-newChatMenuBtn?.addEventListener('click',newChat);
-sendBtn?.addEventListener('click',sendMessage);
-testModelBtn?.addEventListener('click',testModel);
-messageInput?.addEventListener('input',updateCharCount);
-document.querySelectorAll('.model-card').forEach(e=>{e.addEventListener('click',()=>{currentModel=e.dataset.model,updateModelUI(),saveConversation(),closeModelList(),showToast(`Model changed to ${modelNames[currentModel].name}`)})});
-sidebarToggle?.addEventListener('click',()=>sidebar?.classList.toggle('open'));
+function updateModelUI() {
+    if (currentModelName) {
+        currentModelName.textContent = `${modelNames[currentModel].icon} ${modelNames[currentModel].name}`;
+    }
+    if (activeModelNameSpan) {
+        activeModelNameSpan.textContent = modelNames[currentModel].name;
+    }
+    const iconDisplay = document.querySelector('.model-icon-display');
+    if (iconDisplay) {
+        iconDisplay.textContent = modelNames[currentModel].icon;
+    }
+    
+    document.querySelectorAll('.model-card').forEach(card => {
+        if (card.dataset.model === currentModel) {
+            card.classList.add('active');
+        } else {
+            card.classList.remove('active');
+        }
+    });
+}
 
-loadSystemPrompt(),loadConversation(),updateCharCount(),updateModelUI();
+function saveConversation() {
+    localStorage.setItem('chat_history', JSON.stringify(conversationHistory));
+    localStorage.setItem('current_model', currentModel);
+}
+
+function loadConversation() {
+    const saved = localStorage.getItem('chat_history');
+    if (saved) {
+        try {
+            conversationHistory = JSON.parse(saved);
+            renderMessages();
+        } catch(e) { console.error('Failed to parse history', e); }
+    }
+    const savedModel = localStorage.getItem('current_model');
+    if (savedModel && modelNames[savedModel]) {
+        currentModel = savedModel;
+        updateModelUI();
+    }
+}
+
+function closeModelList() {
+    if (modelListContainer) modelListContainer.style.display = 'none';
+}
+
+function toggleModelList() {
+    if (modelListContainer) {
+        if (modelListContainer.style.display === 'none' || modelListContainer.style.display === '') {
+            modelListContainer.style.display = 'block';
+        } else {
+            modelListContainer.style.display = 'none';
+        }
+    }
+}
+
+function closeWelcomeMsg() {
+    if (welcomeMessage) {
+        welcomeMessage.classList.add('hidden');
+        localStorage.setItem('welcome_closed', 'true');
+        showToast('Petunjuk ditutup');
+    }
+}
+
+function renderMessages() {
+    if (!messagesContainer) return;
+    
+    if (conversationHistory.length === 0) {
+        // Welcome message sudah ada di HTML, tidak perlu diganti
+        return;
+    }
+    
+    messagesContainer.innerHTML = '';
+    conversationHistory.forEach(msg => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${msg.role}`;
+        const time = new Date(msg.timestamp).toLocaleTimeString();
+        let content = msg.content;
+        
+        if (msg.role === 'assistant') {
+            content = formatCodeBlocks(msg.content);
+        } else {
+            content = escapeHtml(msg.content).replace(/\n/g, '<br>');
+        }
+        
+        messageDiv.innerHTML = `<div class="message-content">${content}<div class="message-time">${time}</div></div>`;
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    // Apply syntax highlighting to code blocks
+    document.querySelectorAll('pre code').forEach((block) => {
+        if (typeof hljs !== 'undefined') {
+            hljs.highlightElement(block);
+        }
+        const pre = block.parentElement;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-block-wrapper';
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-code-btn';
+        copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText(block.textContent);
+            copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            setTimeout(() => copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy', 2000);
+        };
+        wrapper.appendChild(copyBtn);
+    });
+    
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+async function loadSystemPrompt() {
+    if (!systemPromptDisplay) return;
+    try {
+        const response = await fetch('/api/system_prompt');
+        const data = await response.json();
+        systemPromptDisplay.textContent = data.system_prompt || 'No system prompt set';
+    } catch (error) {
+        console.error('Failed to load system prompt:', error);
+        systemPromptDisplay.textContent = 'Failed to load system prompt';
+    }
+}
+
+function showError(errorMsg) {
+    if (!messagesContainer) return;
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'message assistant';
+    errorDiv.innerHTML = `<div class="message-content" style="background: rgba(220, 53, 69, 0.15); border-color: #dc3545;">❌ Error: ${escapeHtml(errorMsg)}<div class="message-time">${new Date().toLocaleTimeString()}</div></div>`;
+    messagesContainer.appendChild(errorDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    if (apiStatus) {
+        apiStatus.innerHTML = '<i class="fas fa-circle" style="color: #dc3545;"></i> Error';
+        setTimeout(() => {
+            if (apiStatus) apiStatus.innerHTML = '<i class="fas fa-circle" style="color: #28a745;"></i> API Ready';
+        }, 3000);
+    }
+}
+
+async function sendMessage() {
+    if (isWaitingResponse) return;
+    if (!messageInput) return;
+    
+    const message = messageInput.value.trim();
+    if (!message) return;
+    
+    const userMessage = { role: 'user', content: message, timestamp: new Date().toISOString() };
+    conversationHistory.push(userMessage);
+    renderMessages();
+    
+    messageInput.value = '';
+    if (charCount) charCount.textContent = '0 karakter';
+    
+    isWaitingResponse = true;
+    if (typingIndicator) typingIndicator.style.display = 'flex';
+    if (sendBtn) sendBtn.disabled = true;
+    if (apiStatus) apiStatus.innerHTML = '<i class="fas fa-circle" style="color: #ffc107;"></i> Processing...';
+    
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: message,
+                model: currentModel,
+                temperature: temperatureSlider ? parseFloat(temperatureSlider.value) : 0.7,
+                max_tokens: maxTokensSlider ? parseInt(maxTokensSlider.value) : 2000,
+                history: conversationHistory.slice(0, -1)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const assistantMessage = { role: 'assistant', content: data.message, timestamp: new Date().toISOString() };
+            conversationHistory.push(assistantMessage);
+            renderMessages();
+            saveConversation();
+            if (apiStatus) apiStatus.innerHTML = '<i class="fas fa-circle" style="color: #28a745;"></i> API Ready';
+        } else {
+            showError(data.error || 'Failed to get response');
+        }
+    } catch (error) {
+        showError('Network error: ' + error.message);
+    } finally {
+        isWaitingResponse = false;
+        if (typingIndicator) typingIndicator.style.display = 'none';
+        if (sendBtn) sendBtn.disabled = false;
+    }
+}
+
+async function testModel() {
+    if (!testModelBtn) return;
+    testModelBtn.disabled = true;
+    testModelBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Testing...';
+    try {
+        const response = await fetch('/api/test_model', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: currentModel })
+        });
+        const data = await response.json();
+        if (data.success) {
+            showError(`✅ ${modelNames[currentModel].name} is working!`);
+        } else {
+            showError('❌ Test failed');
+        }
+    } catch (error) {
+        showError('Test failed: ' + error.message);
+    } finally {
+        testModelBtn.disabled = false;
+        testModelBtn.innerHTML = '<i class="fas fa-vial"></i> Test Model';
+    }
+}
+
+function clearHistory() {
+    if (confirm('Hapus semua percakapan?')) {
+        conversationHistory = [];
+        renderMessages();
+        saveConversation();
+        showToast('Chat history cleared');
+    }
+}
+
+function newChat() {
+    if (conversationHistory.length > 0 && confirm('Mulai chat baru?')) {
+        conversationHistory = [];
+        renderMessages();
+        saveConversation();
+        showToast('New chat started');
+    }
+}
+
+function updateCharCount() {
+    if (charCount && messageInput) {
+        charCount.textContent = messageInput.value.length + ' karakter';
+    }
+}
+
+// ========== INITIALIZE ALL EVENT LISTENERS ==========
+function initApp() {
+    console.log('Initializing OpenRouter WebUI...');
+    
+    // Get DOM elements
+    messagesContainer = document.getElementById('messagesContainer');
+    messageInput = document.getElementById('messageInput');
+    sendBtn = document.getElementById('sendBtn');
+    testModelBtn = document.getElementById('testModelBtn');
+    temperatureSlider = document.getElementById('temperature');
+    tempValue = document.getElementById('tempValue');
+    maxTokensSlider = document.getElementById('maxTokens');
+    tokensValue = document.getElementById('tokensValue');
+    typingIndicator = document.getElementById('typingIndicator');
+    charCount = document.getElementById('charCount');
+    currentModelName = document.getElementById('currentModelName');
+    activeModelNameSpan = document.getElementById('activeModelName');
+    apiStatus = document.getElementById('apiStatus');
+    systemPromptDisplay = document.getElementById('systemPromptDisplay');
+    showModelsBtn = document.getElementById('showModelsBtn');
+    clearChatMenuBtn = document.getElementById('clearChatMenuBtn');
+    newChatMenuBtn = document.getElementById('newChatMenuBtn');
+    modelListContainer = document.getElementById('modelListContainer');
+    closeModelsBtn = document.getElementById('closeModelsBtn');
+    sidebarToggle = document.getElementById('sidebarToggle');
+    sidebar = document.getElementById('sidebar');
+    welcomeMessage = document.getElementById('welcomeMessage');
+    closeWelcomeBtn = document.getElementById('closeWelcomeBtn');
+    
+    console.log('Elements found:', {
+        sendBtn: !!sendBtn,
+        messageInput: !!messageInput,
+        testModelBtn: !!testModelBtn
+    });
+    
+    // Setup event listeners
+    if (sendBtn) {
+        sendBtn.addEventListener('click', sendMessage);
+        console.log('Send button listener added');
+    }
+    
+    if (messageInput) {
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        messageInput.addEventListener('input', updateCharCount);
+    }
+    
+    if (testModelBtn) {
+        testModelBtn.addEventListener('click', testModel);
+    }
+    
+    if (temperatureSlider && tempValue) {
+        temperatureSlider.addEventListener('input', () => {
+            tempValue.textContent = temperatureSlider.value;
+        });
+    }
+    
+    if (maxTokensSlider && tokensValue) {
+        maxTokensSlider.addEventListener('input', () => {
+            tokensValue.textContent = maxTokensSlider.value;
+        });
+    }
+    
+    if (showModelsBtn) {
+        showModelsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleModelList();
+        });
+    }
+    
+    if (closeModelsBtn) {
+        closeModelsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeModelList();
+        });
+    }
+    
+    if (clearChatMenuBtn) {
+        clearChatMenuBtn.addEventListener('click', clearHistory);
+    }
+    
+    if (newChatMenuBtn) {
+        newChatMenuBtn.addEventListener('click', newChat);
+    }
+    
+    if (closeWelcomeBtn) {
+        closeWelcomeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeWelcomeMsg();
+        });
+    }
+    
+    if (sidebarToggle && sidebar) {
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+        });
+    }
+    
+    // Model card selection
+    document.querySelectorAll('.model-card').forEach(card => {
+        card.addEventListener('click', () => {
+            currentModel = card.dataset.model;
+            updateModelUI();
+            saveConversation();
+            closeModelList();
+            showToast(`Model changed to ${modelNames[currentModel].name}`);
+        });
+    });
+    
+    // Example buttons
+    document.querySelectorAll('.example-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (messageInput) {
+                messageInput.value = btn.dataset.prompt;
+                updateCharCount();
+                messageInput.focus();
+            }
+        });
+    });
+    
+    // Click outside to close model list
+    document.addEventListener('click', (e) => {
+        if (modelListContainer && modelListContainer.style.display === 'block') {
+            if (modelListContainer && !modelListContainer.contains(e.target) && showModelsBtn && !showModelsBtn.contains(e.target)) {
+                closeModelList();
+            }
+        }
+    });
+    
+    if (modelListContainer) {
+        modelListContainer.addEventListener('click', (e) => e.stopPropagation());
+    }
+    
+    // Check welcome message closed status
+    if (localStorage.getItem('welcome_closed') === 'true' && welcomeMessage) {
+        welcomeMessage.classList.add('hidden');
+    }
+    
+    // Load data
+    loadSystemPrompt();
+    loadConversation();
+    updateCharCount();
+    updateModelUI();
+    
+    console.log('OpenRouter WebUI initialized successfully!');
+}
+
+// Start when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
