@@ -4,27 +4,26 @@ import requests
 import json
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = os.urandom(24)
 CORS(app)
 
 API_KEY = "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"
 BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# 5 Model AI Gratis
 FREE_MODELS = {
     "gpt-oss": {
         "id": "openai/gpt-oss-120b:free",
         "name": "🤖 GPT-OSS 120B",
         "icon": "🤖",
-        "description": "OpenAI GPT OSS 120B parameter",
+        "description": "OpenAI GPT OSS 120B",
         "context": "120K token"
     },
     "gemma-31b": {
         "id": "google/gemma-4-31b-it:free",
         "name": "🌟 Gemma 4 31B",
         "icon": "🌟",
-        "description": "Google DeepMind 31B parameter",
+        "description": "Google DeepMind 31B",
         "context": "256K token"
     },
     "gemma-26b": {
@@ -45,7 +44,7 @@ FREE_MODELS = {
         "id": "nvidia/nemotron-3-super-120b-a12b:free",
         "name": "🎯 Nemotron Super",
         "icon": "🎯",
-        "description": "NVIDIA 120B parameter",
+        "description": "NVIDIA 120B",
         "context": "256K token"
     }
 }
@@ -85,7 +84,7 @@ def chat():
         headers = {
             "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://openrouter-webui.onrender.com",
+            "HTTP-Referer": os.environ.get('RENDER_EXTERNAL_URL', 'https://openrouter-webui.onrender.com'),
             "X-OpenRouter-Title": "OpenRouter WebUI"
         }
         
@@ -114,18 +113,25 @@ def get_system_prompt():
 
 @app.route('/api/test_model', methods=['POST'])
 def test_model():
-    data = request.json
-    model_key = data.get('model', 'gpt-oss')
-    model_id = FREE_MODELS.get(model_key, FREE_MODELS['gpt-oss'])['id']
-    
-    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": model_id, "messages": [{"role": "user", "content": "Say OK"}], "max_tokens": 5}
-    
     try:
+        data = request.json
+        model_key = data.get('model', 'gpt-oss')
+        model_id = FREE_MODELS.get(model_key, FREE_MODELS['gpt-oss'])['id']
+        
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model_id,
+            "messages": [{"role": "user", "content": "Say OK"}],
+            "max_tokens": 5
+        }
+        
         response = requests.post(BASE_URL, headers=headers, json=payload, timeout=30)
         return jsonify({'success': response.status_code == 200})
-    except:
-        return jsonify({'success': False})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
@@ -133,7 +139,5 @@ if __name__ == '__main__':
     print("🚀 OpenRouter AI WebUI Started!")
     print("="*50)
     print(f"📱 Open in browser: http://localhost:{port}")
-    print("📝 System Prompt diatur di file: system_prompt.json")
-    print("🤖 Available Models: 5 Free Models")
     print("="*50 + "\n")
     app.run(debug=False, host='0.0.0.0', port=port)
